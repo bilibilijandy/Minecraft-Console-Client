@@ -620,6 +620,15 @@ namespace MinecraftClient
             if (Config.ChatBot.McpServer.Enabled) { BotLoad(new McpServer()); }
             if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("MCC_FILE_INPUT")))
                 BotLoad(new FileInputBot());
+
+            // Load custom chat bots from the 'plugins' folder (created automatically on startup)
+            const string pluginsFolder = "plugins";
+            System.IO.Directory.CreateDirectory(pluginsFolder);
+            foreach (string csFile in System.IO.Directory.GetFiles(pluginsFolder, "*.cs"))
+            {
+                Log.Info(string.Format("Loading custom chat bot from plugin: {0}", csFile));
+                BotLoad(new Script(csFile));
+            }
         }
 
         /// <summary>
