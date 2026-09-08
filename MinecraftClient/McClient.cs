@@ -622,12 +622,18 @@ namespace MinecraftClient
                 BotLoad(new FileInputBot());
 
             // Load custom chat bots from the 'plugins' folder (created automatically on startup)
+            // .cs = C# chat bot, .script = classic command script (former .txt extension)
             const string pluginsFolder = "plugins";
             System.IO.Directory.CreateDirectory(pluginsFolder);
             foreach (string csFile in System.IO.Directory.GetFiles(pluginsFolder, "*.cs"))
             {
                 Log.Info(string.Format("Loading custom chat bot from plugin: {0}", csFile));
                 BotLoad(new Script(csFile));
+            }
+            foreach (string scriptFile in System.IO.Directory.GetFiles(pluginsFolder, "*.script"))
+            {
+                Log.Info(string.Format("Loading command script from plugin: {0}", scriptFile));
+                BotLoad(new Script(scriptFile));
             }
         }
 

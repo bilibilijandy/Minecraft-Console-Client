@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using Microsoft.CodeAnalysis;
+using MinecraftClient.ChatBots;
 using MinecraftClient.Scripting.DynamicRun.Builder;
 using static MinecraftClient.Settings;
 
@@ -255,6 +256,11 @@ namespace MinecraftClient.Scripting
         private readonly Dictionary<string, object>? localVars;
 
         /// <summary>
+        /// The ChatBot handler this API wraps (the Script bot, for plugin config access)
+        /// </summary>
+        private readonly ChatBot apiHandler;
+
+        /// <summary>
         /// Create a new C# API Wrapper
         /// </summary>
         /// <param name="apiHandler">ChatBot API Handler</param>
@@ -262,9 +268,54 @@ namespace MinecraftClient.Scripting
         /// <param name="localVars">Local variables passed along with the script</param>
         public CSharpAPI(ChatBot apiHandler, Dictionary<string, object>? localVars, string? scriptOwnerKey = null)
         {
+            this.apiHandler = apiHandler;
             SetMaster(apiHandler);
             this.localVars = localVars;
             SetScriptOwnerKey(scriptOwnerKey);
+        }
+
+        /* == Plugin configuration API (available to C# plugins) == */
+
+        /// <summary>
+        /// Get the raw YAML content of this plugin's config file (plugins/&lt;PluginName&gt;.yml).
+        /// Returns an empty string if the plugin has no config file.
+        /// </summary>
+        public string GetPluginConfig()
+        {
+            string? path = (apiHandler as Script)?.PluginConfigPath;
+            return (path is not null && File.Exists(path)) ? File.ReadAllText(path) : string.Empty;
+        }
+
+        /// <summary>
+        /// Overwrite this plugin's config file with raw YAML content.
+        /// </summary>
+        public bool SavePluginConfig(string content)
+        {
+            string? path = (apiHandler as Script)?.PluginConfigPath;
+            if (path is null)
+                return false;
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, content);
+            return true;
+        }
+
+        /// <summary>
+        /// Read a value from this plugin's config. Use "parent.child" for nested values.
+        /// Returns a string, long, double, bool or null depending on the YAML content.
+        /// </summary>
+        public object? GetConfig(string key)
+        {
+            return SimpleYaml.Get(SimpleYaml.Parse(GetPluginConfig()), key);
+        }
+
+        /// <summary>
+        /// Set a value in this plugin's config and persist it to the .yml file.
+        /// </summary>
+        public bool SetConfig(string key, object? value)
+        {
+            Dictionary<string, object?> data = SimpleYaml.Parse(GetPluginConfig());
+            SimpleYaml.Set(data, key, value);
+            return SavePluginConfig(SimpleYaml.Serialize(data));
         }
 
         /// <summary>

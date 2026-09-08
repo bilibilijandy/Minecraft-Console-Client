@@ -29,7 +29,7 @@ namespace MinecraftClient.CommandHandler.ArgumentType
                 {
                     foreach (string fileName in Directory.GetFiles(dir, "*.cs"))
                         builder.Suggest(fileName);
-                    foreach (string fileName in Directory.GetFiles(dir, "*.txt"))
+                    foreach (string fileName in Directory.GetFiles(dir, "*.script"))
                         builder.Suggest(fileName);
                 }
             }
@@ -41,7 +41,7 @@ namespace MinecraftClient.CommandHandler.ArgumentType
             {
                 foreach (string fileName in Directory.GetFiles("." + Path.DirectorySeparatorChar, "*.cs"))
                     builder.Suggest(fileName);
-                foreach (string fileName in Directory.GetFiles("." + Path.DirectorySeparatorChar, "*.txt"))
+                foreach (string fileName in Directory.GetFiles("." + Path.DirectorySeparatorChar, "*.script"))
                     builder.Suggest(fileName);
             }
             catch (IOException) { }

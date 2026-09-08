@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using MinecraftClient.CommandHandler;
 using MinecraftClient.Scripting;
@@ -26,6 +27,18 @@ namespace MinecraftClient.ChatBots
         private Thread? thread;
         private readonly Dictionary<string, object>? localVars;
         private readonly string? scriptOwnerKey;
+
+        /// <summary>Plugin metadata, parsed from the [MCCPlugin(...)] attribute in .cs plugins</summary>
+        public string? PluginName { get; private set; }
+
+        /// <summary>Plugin version, parsed from the [MCCPlugin(...)] attribute in .cs plugins</summary>
+        public string? PluginVersion { get; private set; }
+
+        /// <summary>Plugin author, parsed from the [MCCPlugin(...)] attribute in .cs plugins</summary>
+        public string? PluginAuthor { get; private set; }
+
+        /// <summary>Path of the plugin config file (plugins/&lt;PluginName&gt;.yml)</summary>
+        public string? PluginConfigPath { get; private set; }
 
         public Script(string filename)
         {
@@ -93,18 +106,18 @@ namespace MinecraftClient.ChatBots
 
         public static bool LookForScript(ref string filename)
         {
-            //Automatically look in subfolders and try to add ".txt" file extension
+            //Automatically look in subfolders and try to add ".script" or ".cs" file extension
             char dir_slash = Path.DirectorySeparatorChar;
             string[] files = new string[]
             {
                 filename,
-                filename + ".txt",
+                filename + ".script",
                 filename + ".cs",
                 "scripts" + dir_slash + filename,
-                "scripts" + dir_slash + filename + ".txt",
+                "scripts" + dir_slash + filename + ".script",
                 "scripts" + dir_slash + filename + ".cs",
                 "config" + dir_slash + filename,
-                "config" + dir_slash + filename + ".txt",
+                "config" + dir_slash + filename + ".script",
                 "config" + dir_slash + filename + ".cs",
             };
 
@@ -134,6 +147,46 @@ namespace MinecraftClient.ChatBots
             return false;
         }
 
+        /// <summary>
+        /// True if the script file is located inside the 'plugins' folder
+        /// </summary>
+        private bool IsPluginFile
+        {
+            get { return file.StartsWith("plugins" + Path.DirectorySeparatorChar, StringComparison.Ordinal); }
+        }
+
+        /// <summary>
+        /// Parse plugin metadata ([MCCPlugin(...)] attribute) from the .cs source and
+        /// create the plugin config file (plugins/&lt;PluginName&gt;.yml) if it does not exist yet.
+        /// </summary>
+        private void SetupPlugin()
+        {
+            Regex regex = new(@"\[MCCPlugin\(\s*""(?<name>[^""]*)""\s*,\s*""(?<version>[^""]*)""(?:\s*,\s*""(?<author>[^""]*)""\s*)?\)\]");
+            foreach (string line in lines)
+            {
+                Match match = regex.Match(line);
+                if (match.Success)
+                {
+                    PluginName = match.Groups["name"].Value;
+                    PluginVersion = match.Groups["version"].Value;
+                    PluginAuthor = match.Groups["author"].Value;
+                    break;
+                }
+            }
+
+            if (!string.IsNullOrEmpty(PluginName))
+            {
+                PluginConfigPath = Path.Combine(Path.GetDirectoryName(file) ?? ".", PluginName + ".yml");
+                if (!File.Exists(PluginConfigPath))
+                {
+                    File.WriteAllText(PluginConfigPath, "# Configuration for plugin: " + PluginName + "\n");
+                    LogToConsole("Created plugin config file: " + PluginConfigPath);
+                }
+
+                LogToConsole(string.Format("Loaded plugin '{0}' v{1} by {2}", PluginName, PluginVersion ?? "?", PluginAuthor ?? "unknown"));
+            }
+        }
+
         public override void Initialize()
         {
             //Load the given file from the startup parameters
@@ -142,6 +195,10 @@ namespace MinecraftClient.ChatBots
                 lines = System.IO.File.ReadAllLines(file, Encoding.UTF8);
                 csharp = file.EndsWith(".cs");
                 thread = null;
+
+                //For plugins loaded from the 'plugins' folder: parse metadata and create the config file
+                if (csharp && IsPluginFile)
+                    SetupPlugin();
 
                 if (!String.IsNullOrEmpty(owner))
                     SendPrivateMessage(owner, string.Format(Translations.bot_script_pm_loaded, file));
