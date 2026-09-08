@@ -143,6 +143,11 @@ namespace MinecraftClient
                 ConsoleIO.DebugReadInput();
             }
 
+            // Create the 'plugins' folder on startup so users can drop in custom chat
+            // bots (.cs C# bots / .script command scripts) even before connecting.
+            const string pluginsFolder = "plugins";
+            Directory.CreateDirectory(pluginsFolder);
+
             // --- Load config as early as possible (no printing yet) ---
             Settings.ConfigLoadResult configResult;
             bool newlyGenerated = false;
