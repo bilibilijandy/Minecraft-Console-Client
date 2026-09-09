@@ -5,6 +5,11 @@ FROM mcr.microsoft.com/dotnet/sdk:6.0
 # Then replace the <version> with a version of your choice (Example: MCC_VERSION=20220817-29)
 #ENV MCC_VERSION=<version>
 
+# Force .NET to detect the container so ConsoleWriter uses the FallbackWriter
+# (plain Console.WriteLine without ANSI sequences / cursor control), which keeps
+# non-PTY (MCSM without pty) output clean: only LF newlines, no stray CR.
+ENV DOTNET_RUNNING_IN_CONTAINER=true
+
 # IF you want to use a specific platform then specific the ENV MCC_PLATFORM
 # For example to use arm set the environment variable: MCC_PLATFORM=linux-arm64
 # `docker run -e MCC_PLATFORM=linux-arm64 -it localhost/minecraft-console-client`

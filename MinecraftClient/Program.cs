@@ -131,6 +131,37 @@ namespace MinecraftClient
                 args = args.Where(o => !Object.ReferenceEquals(o, args[^1])).ToArray();
             }
 
+            // Force BasicIO via environment variables. Process managers that cannot
+            // rely on pipe detection (e.g. a container whose stdout is still a TTY)
+            // can set MCC_BASICIO=true and/or MCC_BASICIO_NO_COLOR=true in the
+            // instance environment to opt out of the interactive console backends.
+            string basicIoEnv = Environment.GetEnvironmentVariable("MCC_BASICIO") ?? string.Empty;
+            string basicIoNoColorEnv = Environment.GetEnvironmentVariable("MCC_BASICIO_NO_COLOR") ?? string.Empty;
+            bool basicIoEnabled = basicIoEnv == "1" || string.Equals(basicIoEnv, "true", StringComparison.OrdinalIgnoreCase);
+            bool noColorEnabled = basicIoNoColorEnv == "1" || string.Equals(basicIoNoColorEnv, "true", StringComparison.OrdinalIgnoreCase);
+            if (noColorEnabled)
+            {
+                ConsoleIO.BasicIO = true;
+                ConsoleIO.BasicIO_NoColor = true;
+            }
+            else if (basicIoEnabled)
+            {
+                ConsoleIO.BasicIO = true;
+            }
+
+            // When the process runs without a real terminal (stdout or stdin is
+            // redirected, e.g. MCSM with the simulated terminal disabled, or output
+            // piped to a file), the classic and TUI backends emit ANSI cursor-control
+            // sequences ([1;1H, [?25l, [6n, "Input: ...|<--" redraws...) that make
+            // redirected output unreadable: each new line overwrites the previous one
+            // in a web terminal. Fall back to plain BasicIO output (no ANSI sequences)
+            // in that case.
+            if (!ConsoleIO.BasicIO && (Console.IsOutputRedirected || Console.IsInputRedirected))
+            {
+                ConsoleIO.BasicIO = true;
+                ConsoleIO.BasicIO_NoColor = true;
+            }
+
             //Debug input ?
             if (args.Length == 1 && args[0] == "--keyboard-debug")
             {
